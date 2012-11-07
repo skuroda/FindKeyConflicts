@@ -82,6 +82,7 @@ class FindKeyConflictsCall(threading.Thread):
     def __init__(self, settings, packages):
         self.platform_type = settings.get("type")
         self.ignore_single_key = settings.get("ignore_single_key", True)
+        self.ignore_patterns = settings.get("ignore_patterns", [])
         self.packages = packages
         self.all_key_map = {}
         self.prev_error = False
@@ -89,6 +90,10 @@ class FindKeyConflictsCall(threading.Thread):
 
     def run(self):
         run_user = False
+        temp = []
+        for ignore_pattern in self.ignore_patterns:
+            temp.append(self.order_key_string(ignore_pattern))
+        self.ignore_patterns = temp
         if "Default" in self.packages:
             self.check_for_conflicts("Default")
             self.packages.remove("Default")
@@ -130,13 +135,15 @@ class FindKeyConflictsCall(threading.Thread):
                     for entry in key_map:
                         keys = entry["keys"]
 
+                        key_array = []
                         key_string = ""
                         for key in keys:
-                            key_string += self.order_key_string(key) + ","
+                            key_array.append(self.order_key_string(key))
 
-                        key_string = key_string[0:-1]
-                        # if and self.ignore_single_key:
-                        #     continue
+                        if self.check_ignore(key_array):
+                            continue
+                        key_string = ",".join(key_array)
+
                         if key_string in self.all_key_map:
                             tmp = self.all_key_map.get(key_string)
                             if package not in tmp:
@@ -148,9 +155,29 @@ class FindKeyConflictsCall(threading.Thread):
 
         return
 
+    def check_ignore(self, key_array):
+
+        if ",".join(key_array) in self.ignore_patterns:
+            return True
+        if len(key_array) > 1 or not self.ignore_single_key:
+            return False
+
+        for key_string in key_array:
+            split_keys = key_string.split("+")
+            try:
+                i = split_keys.index("")
+                split_keys[i] = "+"
+                split_keys.remove("")
+            except:
+                pass
+
+            if len(split_keys) == 1 and self.ignore_single_key:
+                return True
+
+        return False
+
     def order_key_string(self, key_string):
         split_keys = key_string.split("+")
-
         try:
             i = split_keys.index("")
             split_keys[i] = "+"
