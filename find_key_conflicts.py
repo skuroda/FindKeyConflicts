@@ -100,9 +100,9 @@ class GenerateOutput(object):
         panel.insert(panel_edit, 0, content)
         panel.end_edit(panel_edit)
 
-    def generate_text(self, key_string, all_key_map, offset=0):
+    def generate_text(self, key_string, key_map, offset=0):
         content = ''
-        item = all_key_map.get(key_string)
+        item = key_map.get(key_string)
         content += " " * offset
         content += ' [%s]\n' % (key_string)
         packages = item.get("packages")
@@ -117,10 +117,13 @@ class GenerateOutput(object):
         return content
 
     def generate_quickpanel(self, key_map):
+        self.key_map = key_map
         quick_panel_items = []
         keylist = key_map.keys()
         keylist.sort()
+        self.list = []
         for key in keylist:
+            self.list.append(key)
             value = key_map[key]
             quick_panel_item = [key, ", ".join(value["packages"])]
             quick_panel_items.append(quick_panel_item)
@@ -128,7 +131,12 @@ class GenerateOutput(object):
         self.window.show_quick_panel(quick_panel_items, self.quick_panel_callback)
 
     def quick_panel_callback(self, index):
-        pass
+        if index == -1:
+            return
+        entry = self.list[index]
+        content = self.generate_header("Entry")
+        content += self.generate_text(entry, self.key_map)
+        self.generate_file(content)
 
     def remove_non_conflicts(self, all_key_map):
         keylist = all_key_map.keys()
