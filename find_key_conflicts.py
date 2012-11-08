@@ -7,31 +7,22 @@ import threading
 
 PACKAGES_PATH = sublime.packages_path()
 PLATFORM = sublime.platform()
+MODIFIERS = ('shift', 'ctrl', 'alt', 'super')
 
 
-class FindKeyConflictsCommand(sublime_plugin.TextCommand):
-    def quick_panel_callback(self, index):
-        pass
-
-    def run(self, edit):
+class GenerateKeymaps(object):
+    def run(self):
         self.all_key_map = {}
-        self.window = self.view.window()
-        if PLATFORM == "windows":
-            self.type = "Windows"
-        elif PLATFORM == "linux":
-            self.type = "Linux"
-        else:
-            self.type = "OSX"
+        self.window = self.window
+        self.view = self.window.active_view()
 
         packages = os.listdir(PACKAGES_PATH)
         packages.sort()
 
-        preferences = sublime.load_settings("Preferences.sublime-settings")
         plugin_settings = sublime.load_settings("FindKeyConflicts.sublime-settings")
 
-        ignored_packages = preferences.get("ignored_packages", [])
+        ignored_packages = self.view.settings().get("ignored_packages", [])
         ignored_packages += plugin_settings.get("ignored_packages", [])
-        plugin_settings.set("type", self.type)
 
         packages = self.remove_ignored_packages(packages, ignored_packages)
         thread = FindKeyConflictsCall(plugin_settings, packages)
@@ -57,16 +48,10 @@ class FindKeyConflictsCommand(sublime_plugin.TextCommand):
             self.view.erase_status('find_key_conflicts')
             sublime.status_message('FindKeyConflicts finished.')
 
-            self.show_popup(thread.all_key_map)
+            self.handle_results(thread.all_key_map)
 
-    def show_popup(self, all_key_map):
-        quick_panel_items = []
-        for key, value in all_key_map.iteritems():
-            if len(value) > 1:
-                quick_panel_item = [key, ", ".join(value)]
-                quick_panel_items.append(quick_panel_item)
-
-        self.window.show_quick_panel(quick_panel_items, self.quick_panel_callback)
+    def handle_results(self, all_key_map):
+        raise NotImplementedError("Should have implemented this")
 
     def remove_ignored_packages(self, packages, ignored_packages):
         for ignored_package in ignored_packages:
@@ -78,9 +63,97 @@ class FindKeyConflictsCommand(sublime_plugin.TextCommand):
         return packages
 
 
+class GenerateOutput(object):
+    def generate_file(self, all_key_map):
+        txt = ''
+        keys = all_key_map.keys()
+        keys.sort()
+        for key_string in keys:
+            txt += self.generate_text(key_string, all_key_map)
+
+        panel = sublime.active_window().new_file()
+        panel.set_scratch(True)
+        panel.settings().set('word_wrap', False)
+        # content output
+        panel_edit = panel.begin_edit()
+        panel.insert(panel_edit, 0, txt)
+        panel.end_edit(panel_edit)
+
+    def generate_text(self, key_string, all_key_map, offset=0):
+        txt = ''
+        item = all_key_map.get(key_string)
+        txt += " " * offset
+        txt += ' [%s]\n' % (key_string)
+        packages = item.get("packages")
+
+        for package in packages:
+            package_map = item.get(package)
+            for entry in package_map:
+                txt += " " * offset
+                txt += '   %-40s %-20s  %s\n' % \
+                (entry['command'], package, entry['context'] if "context" in entry else '')
+
+        return txt
+
+    def generate_quickpanel(self, all_key_map):
+        quick_panel_items = []
+        keylist = all_key_map.keys()
+        keylist.sort()
+        for key in keylist:
+            value = all_key_map[key]
+            quick_panel_item = [key, ", ".join(value["packages"])]
+            quick_panel_items.append(quick_panel_item)
+
+        self.window.show_quick_panel(quick_panel_items, self.quick_panel_callback)
+
+    def quick_panel_callback(self, index):
+        pass
+
+
+class FindKeyConflictsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin.WindowCommand):
+    def run(self, output="quick_panel"):
+        self.output = output
+        GenerateKeymaps.run(self)
+
+    def handle_results(self, all_key_map):
+        if self.output == "quick_panel":
+            self.generate_quickpanel(all_key_map)
+        elif self.output == "buffer":
+            self.generate_file(all_key_map)
+        else:
+            print "FindKeyConflicts[Warning]: Invalid output type specified"
+
+    def generate_file(self, all_key_map):
+        keylist = all_key_map.keys()
+        keylist.sort()
+        new_key_map = {}
+        for key in keylist:
+            value = all_key_map[key]
+            if len(value["packages"]) > 1:
+                new_key_map[key] = value
+        GenerateOutput.generate_file(self, new_key_map)
+
+    def generate_quickpanel(self, all_key_map):
+        keylist = all_key_map.keys()
+        keylist.sort()
+        new_key_map = {}
+        for key in keylist:
+            value = all_key_map[key]
+            if len(value["packages"]) > 1:
+                new_key_map[key] = value
+        GenerateOutput.generate_quickpanel(self, new_key_map)
+
+
+class FindKeyMappingsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin.WindowCommand):
+    def run(self):
+        GenerateKeymaps.run(self)
+
+    def handle_results(self, all_key_map):
+        self.generate_file(all_key_map)
+
+
 class FindKeyConflictsCall(threading.Thread):
     def __init__(self, settings, packages):
-        self.platform_type = settings.get("type")
         self.ignore_single_key = settings.get("ignore_single_key", True)
         self.ignore_patterns = settings.get("ignore_patterns", [])
         self.packages = packages
@@ -108,55 +181,57 @@ class FindKeyConflictsCall(threading.Thread):
 
     def check_for_conflicts(self, package):
         orig_path = os.path.join(PACKAGES_PATH, package)
-        end_extension = ".sublime-keymap"
         self.done = False
 
         for filename in os.listdir(orig_path):
-            if filename.startswith("Default") and filename.endswith(end_extension):
-                if "(" + self.platform_type + ")" in filename or ("(" not in filename and ")" not in filename):
-                    path = os.path.join(orig_path, filename)
+            if filename.lower() == "default.sublime-keymap" or \
+            filename.lower() == "default (%s).sublime-keymap" % (PLATFORM.lower()):
+                path = os.path.join(orig_path, filename)
 
-                    content = open(path).read()
-                    try:
-                        key_map = json.loads(content)
-                    except:
-                        try:
-                            key_map = json.loads(json_minify(content))
-                        except:
-                            if not self.prev_error:
-                                self.prev_error = True
-                                sublime.error_message("Could not parse a keymap file. See console for details")
+                content = open(path).read()
+                try:
+                    key_map = json.loads(json_minify(content))
+                except:
+                    if not self.prev_error:
+                        self.prev_error = True
+                        sublime.error_message("Could not parse a keymap file. See console for details")
 
-                            error_path = os.path.join(os.path.basename(orig_path), filename)
-                            print "FindKeyConflicts[Warning]: An error " + \
-                                  "occured while parsing '" + error_path + "'"
-                            continue
+                    error_path = os.path.join(os.path.basename(orig_path), filename)
+                    print "FindKeyConflicts[Warning]: An error " + \
+                          "occured while parsing '" + error_path + "'"
+                    continue
 
-                    for entry in key_map:
-                        keys = entry["keys"]
+                for entry in key_map:
+                    keys = entry["keys"]
 
-                        key_array = []
-                        key_string = ""
-                        for key in keys:
-                            key_array.append(self.order_key_string(key))
+                    key_array = []
+                    key_string = ""
+                    for key in keys:
+                        key_array.append(self.order_key_string(key))
 
-                        if self.check_ignore(key_array):
-                            continue
-                        key_string = ",".join(key_array)
+                    if self.check_ignore(key_array):
+                        continue
+                    key_string = ",".join(key_array)
 
-                        if key_string in self.all_key_map:
-                            tmp = self.all_key_map.get(key_string)
-                            if package not in tmp:
-                                tmp.append(package)
-                            self.all_key_map[key_string] = tmp
+                    if key_string in self.all_key_map:
+                        tmp = self.all_key_map.get(key_string)
+                        if package not in tmp["packages"]:
+                            tmp["packages"].append(package)
+                            tmp[package] = [entry]
                         else:
-                            self.all_key_map[key_string] = [package]
+                            tmp[package].append(entry)
+
+                        self.all_key_map[key_string] = tmp
+                    else:
+                        new_entry = {}
+                        new_entry["packages"] = [package]
+                        new_entry[package] = [entry]
+                        self.all_key_map[key_string] = new_entry
         self.done = True
 
         return
 
     def check_ignore(self, key_array):
-
         if ",".join(key_array) in self.ignore_patterns:
             return True
         if len(key_array) > 1 or not self.ignore_single_key:
@@ -185,6 +260,14 @@ class FindKeyConflictsCall(threading.Thread):
         except:
             pass
 
-        split_keys.sort()
-        ordered_key_string = "+".join(split_keys)
+        modifiers = []
+        keys = []
+        for key in split_keys:
+            if key in MODIFIERS:
+                modifiers.append(key)
+            else:
+                keys.append(key)
+        modifiers.sort()
+        keys.sort()
+        ordered_key_string = "+".join(modifiers + keys)
         return ordered_key_string

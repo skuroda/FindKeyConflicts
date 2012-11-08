@@ -1,15 +1,4 @@
 [
-    {
-        "id": "tools",
-        "children":
-        [
-            {
-                "caption": "Run FindKeyConflicts",
-                "id": "find_key_conflicts",
-                "command": "find_key_conflicts"
-            }
-        ]
-    },
 	{
         "caption": "Preferences",
         "mnemonic": "n",
