@@ -18,11 +18,11 @@ Though not part of the package control repository yet, you can still install thr
 * Search for `FindKeyConflicts`
 
 ## Usage
-This plugin can be run through specifying commands on the command palete. The commands are listed in alphabetical order, beginning with modifiers (alt, cntl, shift, super), followed by keys. The commands are as follows:
+This plugin can be run through specifying commands on the command palette. The commands are listed in alphabetical order, beginning with modifiers (alt, cntl, shift, super), followed by keys. The commands are as follows:
 
 `FindKeyConflicts: (Direct) Conflicts to Quick Panel`:
 
-This command finds all direct key conflicts, and displays them on the quick panel. The last package listed under the command is the source for the command being run, if it is not limited by context.
+This command finds all direct key conflicts, and displays them on the quick panel. The last package listed under the command is the source for the command being run, if it is not limited by context. Selecting a particular entry will open a buffer with details about that key binding.
 
 `FindKeyConflicts: (Direct) Conflicts to Buffer`:
 
