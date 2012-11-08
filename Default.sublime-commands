@@ -1,15 +1,19 @@
 [
     {
-        "caption": "FindKeyConflicts: Conflicts to Quick Panel",
+        "caption": "FindKeyConflicts: (Direct) Conflicts to Quick Panel",
         "command": "find_key_conflicts"
     },
     {
-        "caption": "FindKeyConflicts: Conflits to Buffer",
+        "caption": "FindKeyConflicts: (Direct) Conflicts to Buffer",
         "command": "find_key_conflicts",
         "args": {"output": "buffer"}
     },
     {
-        "caption": "FindKeyConflicts: All Mappings",
+        "caption": "FindKeyConflicts: All Key Maps",
         "command": "find_key_mappings"
+    },
+    {
+        "caption": "FindKeyConflicts: All Conflicts",
+        "command": "find_all_key_conflicts"
     }
 ]

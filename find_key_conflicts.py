@@ -64,43 +64,64 @@ class GenerateKeymaps(object):
 
 
 class GenerateOutput(object):
-    def generate_file(self, all_key_map):
-        txt = ''
-        keys = all_key_map.keys()
+    def generate_header(self, header):
+        return '%s\n%s\n%s\n' % ('-' * len(header), header, '-' * len(header))
+
+    def generate_overlapping_key_text(self, conflict_map, all_key_map):
+        content = ""
+        keys = conflict_map.keys()
+        keys.sort()
+        potential_conflicts_keys = conflict_map.keys()
+        potential_conflicts_keys.sort()
+        offset = 4
+        for key_string in potential_conflicts_keys:
+            content += self.generate_text(key_string, all_key_map, offset / 2)
+            for conflict in conflict_map[key_string]:
+                content += self.generate_text(conflict, all_key_map, offset)
+
+        return content
+
+    def generate_key_map_text(self, key_map):
+        content = ''
+        keys = key_map.keys()
+
         keys.sort()
         for key_string in keys:
-            txt += self.generate_text(key_string, all_key_map)
+            content += self.generate_text(key_string, key_map)
 
+        return content
+
+    def generate_file(self, content):
         panel = sublime.active_window().new_file()
         panel.set_scratch(True)
         panel.settings().set('word_wrap', False)
         # content output
         panel_edit = panel.begin_edit()
-        panel.insert(panel_edit, 0, txt)
+        panel.insert(panel_edit, 0, content)
         panel.end_edit(panel_edit)
 
     def generate_text(self, key_string, all_key_map, offset=0):
-        txt = ''
+        content = ''
         item = all_key_map.get(key_string)
-        txt += " " * offset
-        txt += ' [%s]\n' % (key_string)
+        content += " " * offset
+        content += ' [%s]\n' % (key_string)
         packages = item.get("packages")
 
         for package in packages:
             package_map = item.get(package)
             for entry in package_map:
-                txt += " " * offset
-                txt += '   %-40s %-20s  %s\n' % \
+                content += " " * offset
+                content += '   %-40s %-20s  %s\n' % \
                 (entry['command'], package, entry['context'] if "context" in entry else '')
 
-        return txt
+        return content
 
-    def generate_quickpanel(self, all_key_map):
+    def generate_quickpanel(self, key_map):
         quick_panel_items = []
-        keylist = all_key_map.keys()
+        keylist = key_map.keys()
         keylist.sort()
         for key in keylist:
-            value = all_key_map[key]
+            value = key_map[key]
             quick_panel_item = [key, ", ".join(value["packages"])]
             quick_panel_items.append(quick_panel_item)
 
@@ -109,6 +130,16 @@ class GenerateOutput(object):
     def quick_panel_callback(self, index):
         pass
 
+    def remove_non_conflicts(self, all_key_map):
+        keylist = all_key_map.keys()
+        keylist.sort()
+        new_key_map = {}
+        for key in keylist:
+            value = all_key_map[key]
+            if len(value["packages"]) > 1:
+                new_key_map[key] = value
+        return new_key_map
+
 
 class FindKeyConflictsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin.WindowCommand):
     def run(self, output="quick_panel"):
@@ -116,32 +147,43 @@ class FindKeyConflictsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin.Wi
         GenerateKeymaps.run(self)
 
     def handle_results(self, all_key_map):
+        new_key_map = self.remove_non_conflicts(all_key_map)
         if self.output == "quick_panel":
-            self.generate_quickpanel(all_key_map)
+            self.generate_quickpanel(new_key_map)
         elif self.output == "buffer":
-            self.generate_file(all_key_map)
+            content = self.generate_header("Key Conflicts (Only direct conflicts)")
+            content += self.generate_key_map_text(new_key_map)
+            self.generate_file(content)
         else:
             print "FindKeyConflicts[Warning]: Invalid output type specified"
 
-    def generate_file(self, all_key_map):
-        keylist = all_key_map.keys()
-        keylist.sort()
-        new_key_map = {}
-        for key in keylist:
-            value = all_key_map[key]
-            if len(value["packages"]) > 1:
-                new_key_map[key] = value
-        GenerateOutput.generate_file(self, new_key_map)
 
-    def generate_quickpanel(self, all_key_map):
+class FindAllKeyConflictsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin.WindowCommand):
+    def run(self):
+        GenerateKeymaps.run(self)
+
+    def handle_results(self, all_key_map):
+        new_key_map = self.remove_non_conflicts(all_key_map)
+        conflicts = self.find_potential_conflicts(all_key_map)
+
+        content = self.generate_header("Multi Part Key Conflicts")
+        content += self.generate_overlapping_key_text(conflicts, all_key_map)
+        content += self.generate_header("Key Conflicts (Only direct conflicts)")
+        content += self.generate_key_map_text(new_key_map)
+        self.generate_file(content)
+
+    def find_potential_conflicts(self, all_key_map):
         keylist = all_key_map.keys()
         keylist.sort()
-        new_key_map = {}
+        conflicts = {}
         for key in keylist:
-            value = all_key_map[key]
-            if len(value["packages"]) > 1:
-                new_key_map[key] = value
-        GenerateOutput.generate_quickpanel(self, new_key_map)
+            for key_nested in keylist:
+                if key_nested.startswith(key + ","):
+                    if key in conflicts:
+                        conflicts[key].append(key_nested)
+                    else:
+                        conflicts[key] = [key_nested]
+        return conflicts
 
 
 class FindKeyMappingsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin.WindowCommand):
@@ -149,7 +191,9 @@ class FindKeyMappingsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin.Win
         GenerateKeymaps.run(self)
 
     def handle_results(self, all_key_map):
-        self.generate_file(all_key_map)
+        content = self.generate_header("All Key Mappings")
+        content += self.generate_key_map_text(all_key_map)
+        self.generate_file(content)
 
 
 class FindKeyConflictsCall(threading.Thread):
@@ -228,8 +272,6 @@ class FindKeyConflictsCall(threading.Thread):
                         new_entry[package] = [entry]
                         self.all_key_map[key_string] = new_entry
         self.done = True
-
-        return
 
     def check_ignore(self, key_array):
         if ",".join(key_array) in self.ignore_patterns:
