@@ -134,7 +134,7 @@ class GenerateOutput(object):
         if index == -1:
             return
         entry = self.list[index]
-        content = self.generate_header("Entry")
+        content = self.generate_header("Entry Details")
         content += self.generate_text(entry, self.key_map)
         self.generate_file(content)
 
