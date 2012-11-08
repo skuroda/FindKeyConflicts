@@ -77,8 +77,7 @@ class GenerateOutput(object):
         for key_string in potential_conflicts_keys:
             content += self.generate_text(key_string, all_key_map, offset / 2)
             for conflict in conflict_map[key_string]:
-                content += self.generate_text(conflict, all_key_map, offset)
-
+                content += self.generate_text(conflict, all_key_map, offset, "(", ")")
         return content
 
     def generate_key_map_text(self, key_map):
@@ -91,28 +90,36 @@ class GenerateOutput(object):
 
         return content
 
-    def generate_file(self, content):
+    def generate_file(self, content, name="Keys"):
         panel = sublime.active_window().new_file()
         panel.set_scratch(True)
         panel.settings().set('word_wrap', False)
+        panel.set_name(name)
         # content output
         panel_edit = panel.begin_edit()
         panel.insert(panel_edit, 0, content)
         panel.end_edit(panel_edit)
 
-    def generate_text(self, key_string, key_map, offset=0):
+    def longest_command_length(self, key_map):
+        pass
+
+    def longest_package_length(self, key_map):
+        pass
+
+    def generate_text(self, key_string, key_map, offset=0, key_wrap_in='[', key_wrap_out=']'):
         content = ''
         item = key_map.get(key_string)
         content += " " * offset
-        content += ' [%s]\n' % (key_string)
+        content += ' %s%s%s\n' % (key_wrap_in, key_string, key_wrap_out)
         packages = item.get("packages")
 
         for package in packages:
             package_map = item.get(package)
             for entry in package_map:
                 content += " " * offset
-                content += '   %-40s %-20s  %s\n' % \
-                (entry['command'], package, entry['context'] if "context" in entry else '')
+                content += '   %*s %*s  %s\n' % \
+                    (-40 + offset, entry['command'], -20, \
+                    package, json.dumps(entry['context']) if "context" in entry else '')
 
         return content
 
@@ -136,7 +143,7 @@ class GenerateOutput(object):
         entry = self.list[index]
         content = self.generate_header("Entry Details")
         content += self.generate_text(entry, self.key_map)
-        self.generate_file(content)
+        self.generate_file(content, "[%s] Details" % entry)
 
     def remove_non_conflicts(self, all_key_map):
         keylist = all_key_map.keys()
@@ -161,7 +168,7 @@ class FindKeyConflictsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin.Wi
         elif self.output == "buffer":
             content = self.generate_header("Key Conflicts (Only direct conflicts)")
             content += self.generate_key_map_text(new_key_map)
-            self.generate_file(content)
+            self.generate_file(content, "Key Conflicts")
         else:
             print "FindKeyConflicts[Warning]: Invalid output type specified"
 
@@ -172,13 +179,14 @@ class FindAllKeyConflictsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin
 
     def handle_results(self, all_key_map):
         new_key_map = self.remove_non_conflicts(all_key_map)
-        conflicts = self.find_potential_conflicts(all_key_map)
-
+        overlapping_confilicts_map = self.find_potential_conflicts(all_key_map)
+        self.longest_package_length(new_key_map)
+        self.longest_package_length(overlapping_confilicts_map)
         content = self.generate_header("Multi Part Key Conflicts")
-        content += self.generate_overlapping_key_text(conflicts, all_key_map)
+        content += self.generate_overlapping_key_text(overlapping_confilicts_map, all_key_map)
         content += self.generate_header("Key Conflicts (Only direct conflicts)")
         content += self.generate_key_map_text(new_key_map)
-        self.generate_file(content)
+        self.generate_file(content,  "All Key Conflicts")
 
     def find_potential_conflicts(self, all_key_map):
         keylist = all_key_map.keys()
@@ -201,7 +209,7 @@ class FindKeyMappingsCommand(GenerateKeymaps, GenerateOutput, sublime_plugin.Win
     def handle_results(self, all_key_map):
         content = self.generate_header("All Key Mappings")
         content += self.generate_key_map_text(all_key_map)
-        self.generate_file(content)
+        self.generate_file(content, "All Key Mappings")
 
 
 class FindKeyConflictsCall(threading.Thread):

@@ -1,0 +1,7 @@
+Thank you for installing the FindKeyConflicts plugin.
+
+For more information please review the README or visit https://github.com/skuroda/FindKeyConflicts.
+
+If you have any questions, comments, or run into issues, please let me know! Hope you enjoy the plugin.
+
+Thank you!
