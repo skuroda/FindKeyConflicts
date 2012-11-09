@@ -10,10 +10,8 @@ Clone or copy this repository into the packages directory. By default, they are 
 * Linux: ~/.config/sublime-text-2/Packages/
 
 ### Package Control
-Though not part of the package control repository yet, you can still install through package control (with a few extra steps)
+Installation through [package control](http://wbond.net/sublime_packages/package_control) is recommended. It will handle updating your packages as they become available. To install, do the following.
 
-* In the Command Palette, enter `Package Control: Add Repository`
-* Enter the url in the input field `https://github.com/skuroda/FindKeyConflicts`
 * In the Command Palette, enter `Package Control: Install Package`
 * Search for `FindKeyConflicts`
 
