@@ -47,5 +47,9 @@ Boolean value specifying if single key bindings should be ignored. False by defa
 
 Array containing key patterns to ignore. These should follow the same guidelines as specifying key bindings.
 
+`display_internal_conflicts`:
+
+Boolean value used to determine if internal command conflicts to a package should be displayed.
+
 ## Notes
 Thanks to [bizoo](https://github.com/bizoo) for sharing their work with me.

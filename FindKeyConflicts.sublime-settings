@@ -8,5 +8,8 @@
 
 	// List of ignored patterns. These should match the style used
 	// to specify key bindings.
-	"ignore_patterns": []
+	"ignore_patterns": [],
+
+    // Used to determine if internal package conflicts should be displayed.
+    "display_internal_conflicts": true
 }

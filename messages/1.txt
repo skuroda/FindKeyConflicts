@@ -1,0 +1,2 @@
+New Features:
+- Option to display internal package key conflicts as well (Default is true)
