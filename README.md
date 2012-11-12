@@ -18,6 +18,10 @@ Installation through [package control](http://wbond.net/sublime_packages/package
 ## Usage
 This plugin can be run through specifying commands on the command palette. The commands are listed in alphabetical order, beginning with modifiers (alt, cntl, shift, super), followed by keys. The commands are as follows:
 
+`FindKeyConflicts: All Key Maps`:
+
+Displays all key mappings in a buffer.
+
 `FindKeyConflicts: (Direct) Conflicts to Quick Panel`:
 
 This command finds all direct key conflicts, and displays them on the quick panel. The last package listed under the command is the source for the command being run, if it is not limited by context. Selecting a particular entry will open a buffer with details about that key binding.
@@ -26,13 +30,13 @@ This command finds all direct key conflicts, and displays them on the quick pane
 
 Display key direct conflicts in a view. Using this will give a better idea of how commands conflict, as the context for the commands will be included in the output. The last package listed for a particular binding is the command that is used, if it is not limited by context.
 
-`FindKeyConflicts: All Key Maps`:
+`FindKeyConflicts: Overlap Conflicts`:
 
-Displays all key mappings in a buffer.
+Displays key bindings that overlap with mutli part key bindings in a buffer. For example, if `["ctrl+t"]` exists as one binding and `["ctrl+t", "t"]`, exists as another binding, this will be displayed.
 
 `FindKeyConflicts: All Conflicts`:
 
-Displays all conflicts in a buffer. In addition to displaying direct conflicts, this option will also display key bindings that overlap with multi part key bindings. For example, if `["ctrl+t"]` exists as one binding and `["ctrl+t", "t"]`, exists as another binding, this will be displayed.
+Displays all conflicts in a buffer. This option will include both direct and overlapping conflicts.
 
 ## Settings
 `ignored_packages`: 

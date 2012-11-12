@@ -75,6 +75,19 @@ class GenerateKeymaps(object):
                 new_key_map[key] = value
         return new_key_map
 
+    def find_overlap_conflicts(self, all_key_map):
+        keylist = all_key_map.keys()
+        keylist.sort()
+        conflicts = {}
+        for key in keylist:
+            for key_nested in keylist:
+                if key_nested.startswith(key + ","):
+                    if key in conflicts:
+                        conflicts[key].append(key_nested)
+                    else:
+                        conflicts[key] = [key_nested]
+        return conflicts
+
 
 class GenerateOutput(object):
     def __init__(self, all_key_map, show_args, window=None):
@@ -190,7 +203,7 @@ class FindAllKeyConflictsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
     def handle_results(self, all_key_map):
         output = GenerateOutput(all_key_map, self.show_args)
         new_key_map = self.remove_non_conflicts(all_key_map)
-        overlapping_confilicts_map = self.find_potential_conflicts(all_key_map)
+        overlapping_confilicts_map = self.find_overlap_conflicts(all_key_map)
 
         content = output.generate_header("Multi Part Key Conflicts")
         content += output.generate_overlapping_key_text(overlapping_confilicts_map)
@@ -198,18 +211,18 @@ class FindAllKeyConflictsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
         content += output.generate_key_map_text(new_key_map)
         output.generate_file(content,  "All Key Conflicts")
 
-    def find_potential_conflicts(self, all_key_map):
-        keylist = all_key_map.keys()
-        keylist.sort()
-        conflicts = {}
-        for key in keylist:
-            for key_nested in keylist:
-                if key_nested.startswith(key + ","):
-                    if key in conflicts:
-                        conflicts[key].append(key_nested)
-                    else:
-                        conflicts[key] = [key_nested]
-        return conflicts
+
+class FindOverlapConflictsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
+    def run(self):
+        GenerateKeymaps.run(self)
+
+    def handle_results(self, all_key_map):
+        output = GenerateOutput(all_key_map, self.show_args)
+        overlapping_confilicts_map = self.find_overlap_conflicts(all_key_map)
+
+        content = output.generate_header("Multi Part Key Conflicts")
+        content += output.generate_overlapping_key_text(overlapping_confilicts_map)
+        output.generate_file(content,  "All Key Conflicts")
 
 
 class FindKeyMappingsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):

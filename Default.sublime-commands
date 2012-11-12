@@ -15,5 +15,9 @@
     {
         "caption": "FindKeyConflicts: All Conflicts",
         "command": "find_all_key_conflicts"
+    },
+    {
+        "caption": "FindKeyConflicts: Overlap Conflicts",
+        "command": "find_overlap_conflicts"
     }
 ]
