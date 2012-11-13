@@ -19,7 +19,7 @@ class GenerateKeymaps(object):
         self.display_internal_conflicts = plugin_settings.get("display_internal_conflicts", True)
         self.show_args = plugin_settings.get("show_args", False)
 
-        packages = os.listdir(PACKAGES_PATH)
+        packages = [o for o in os.listdir(PACKAGES_PATH) if os.path.isdir(os.path.join(PACKAGES_PATH, o))]
         packages.sort()
 
         ignored_packages = self.view.settings().get("ignored_packages", [])
