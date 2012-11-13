@@ -65,5 +65,7 @@ def json_minify(json,strip_space=True):
              match.group() not in ['\n','\r',' ','\t'] or not strip_space):
                 new_str.append(match.group())
 
-    new_str.append(json[from_index:])
+    if not in_singleline_comment:
+        new_str.append(json[from_index:])
+
     return ''.join(new_str)
