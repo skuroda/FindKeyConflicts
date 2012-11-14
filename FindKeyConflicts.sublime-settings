@@ -10,6 +10,9 @@
 	// to specify key bindings.
 	"ignore_patterns": [],
 
-    // Used to determine if internal package conflicts should be displayed.
-    "display_internal_conflicts": true
+	// Used to determine if internal package conflicts should be displayed.
+	"display_internal_conflicts": true,
+
+	// Enables debug mode
+	"debug": false
 }

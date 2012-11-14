@@ -55,5 +55,10 @@ Array containing key patterns to ignore. These should follow the same guidelines
 
 Boolean value used to determine if internal command conflicts to a package should be displayed.
 
+`debug`:
+
+Setting to control if debugging is enabled.
+
+
 ## Notes
 Thanks to [bizoo](https://github.com/bizoo) for sharing their work with me.

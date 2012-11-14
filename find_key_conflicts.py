@@ -2,8 +2,8 @@ import sublime
 import sublime_plugin
 import os
 import json
-from minify_json import json_minify
 import threading
+from minify_json import json_minify
 
 PACKAGES_PATH = sublime.packages_path()
 PLATFORM = sublime.platform()
@@ -48,7 +48,19 @@ class GenerateKeymaps(object):
         else:
             self.view.erase_status('find_key_conflicts')
             sublime.status_message('FindKeyConflicts finished.')
+            if thread.debug:
+                content = ""
+                for package in thread.debug_minified:
+                    content += "%s\n" % package
+                    content += "%s\n" % thread.debug_minified[package]
 
+                panel = sublime.active_window().new_file()
+                panel.set_scratch(True)
+                panel.settings().set('word_wrap', False)
+                panel.set_name("Debug")
+                panel_edit = panel.begin_edit()
+                panel.insert(panel_edit, 0, content)
+                panel.end_edit(panel_edit)
             self.handle_results(thread.all_key_map)
 
     def handle_results(self, all_key_map):
@@ -238,10 +250,12 @@ class FindKeyMappingsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
 
 class FindKeyConflictsCall(threading.Thread):
     def __init__(self, settings, packages):
-        self.ignore_single_key = settings.get("ignore_single_key", True)
+        self.ignore_single_key = settings.get("ignore_single_key", False)
         self.ignore_patterns = settings.get("ignore_patterns", [])
         self.packages = packages
         self.all_key_map = {}
+        self.debug_minified = {}
+        self.debug = settings.get("debug", False)
         self.prev_error = False
         threading.Thread.__init__(self)
 
@@ -274,12 +288,14 @@ class FindKeyConflictsCall(threading.Thread):
 
                 content = open(path).read()
                 try:
-                    key_map = json.loads(json_minify(content))
+                    minified_content = json_minify(content)
+                    if self.debug:
+                        self.debug_minified[package] = minified_content
+                    key_map = json.loads(minified_content)
                 except:
                     if not self.prev_error:
                         self.prev_error = True
                         sublime.error_message("Could not parse a keymap file. See console for details")
-
                     error_path = os.path.join(os.path.basename(orig_path), filename)
                     print "FindKeyConflicts[Warning]: An error " + \
                           "occured while parsing '" + error_path + "'"
