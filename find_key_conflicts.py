@@ -257,24 +257,44 @@ class FindKeyMappingsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
 
 class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
     def run(self, multiple=False):
-        self.packages = GenerateKeymaps.generate_package_list(self)
+        self.packages = [[entry] for entry in GenerateKeymaps.generate_package_list(self)]
         self.multiple = multiple
-        self.package_set = set()
+        self.package_set = []
         if multiple:
-            self.packages.append("(Done)")
+            self.packages.append(["(Done)"])
         self.window.show_quick_panel(self.packages, self.quick_panel_callback)
 
     def quick_panel_callback(self, index):
         if index == -1:
             return
 
-        if not self.multiple or self.packages[index] != "(Done)":
-            self.package_set.add(self.packages[index])
-        sublime.status_message(", ".join(self.package_set))
-        if not self.multiple or self.packages[index] == "(Done)":
+        if not self.multiple or self.packages[index][0] != "(Done)":
+            if len(self.packages[index]) == 1:
+                self.package_set.append(self.packages[index][0])
+                self.packages[index].append("(Remove)")
+            else:
+                self.package_set.remove(self.packages[index][0])
+                self.packages[index].pop(1)
+        self.package_set.sort()
+        #sublime.status_message(", ".join(self.package_set))
+        if not self.multiple or self.packages[index][0] == "(Done)":
             if len(self.package_set) > 0:
                 GenerateKeymaps.run(self)
         else:
+            self.packages.pop(-1)
+            self.packages.append(["(Done)"])
+            package_string = ""
+            for package in self.package_set:
+
+                if len(package_string + package) > 60:
+                    self.packages[-1].append(package_string)
+                    package_string = package
+                else:
+                    if len(package_string) != 0:
+                        package_string += ", "
+                    package_string += package
+
+            self.packages[-1].append(package_string)
             self.window.show_quick_panel(self.packages, self.quick_panel_callback)
 
     def handle_results(self, all_key_map):
