@@ -19,5 +19,14 @@
     {
         "caption": "FindKeyConflicts: Overlap Conflicts",
         "command": "find_overlap_conflicts"
+    },
+    {
+        "caption": "FindKeyConflicts: Single Package Conflicts",
+        "command": "find_key_conflicts_with_package"
+    },
+    {
+        "caption": "FindKeyConflicts: Multiple Pacakge Conflicts",
+        "command": "find_key_conflicts_with_package",
+        "args": {"multiple": true}
     }
 ]

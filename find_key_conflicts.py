@@ -19,16 +19,23 @@ class GenerateKeymaps(object):
         self.display_internal_conflicts = plugin_settings.get("display_internal_conflicts", True)
         self.show_args = plugin_settings.get("show_args", False)
 
-        packages = [o for o in os.listdir(PACKAGES_PATH) if os.path.isdir(os.path.join(PACKAGES_PATH, o))]
-        packages.sort()
+        packages = self.generate_package_list()
 
-        ignored_packages = self.view.settings().get("ignored_packages", [])
-        ignored_packages += plugin_settings.get("ignored_packages", [])
-
-        packages = self.remove_ignored_packages(packages, ignored_packages)
         thread = FindKeyConflictsCall(plugin_settings, packages)
         thread.start()
         self.handle_thread(thread)
+
+    def generate_package_list(self):
+        plugin_settings = sublime.load_settings("FindKeyConflicts.sublime-settings")
+        view = self.window.active_view()
+        packages = [o for o in os.listdir(PACKAGES_PATH) if os.path.isdir(os.path.join(PACKAGES_PATH, o))]
+        packages.sort()
+
+        ignored_packages = view.settings().get("ignored_packages", [])
+        ignored_packages += plugin_settings.get("ignored_packages", [])
+
+        packages = self.remove_ignored_packages(packages, ignored_packages)
+        return packages
 
     def handle_thread(self, thread, i=0, move=1):
         if thread.is_alive():
@@ -246,6 +253,47 @@ class FindKeyMappingsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
         content = output.generate_header("All Key Mappings")
         content += output.generate_key_map_text(all_key_map)
         output.generate_file(content, "All Key Mappings")
+
+
+class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
+    def run(self, multiple=False):
+        self.packages = GenerateKeymaps.generate_package_list(self)
+        self.multiple = multiple
+        self.package_set = set()
+        if multiple:
+            self.packages.append("(Done)")
+        self.window.show_quick_panel(self.packages, self.quick_panel_callback)
+
+    def quick_panel_callback(self, index):
+        if index == -1:
+            return
+
+        if not self.multiple or self.packages[index] != "(Done)":
+            self.package_set.add(self.packages[index])
+        sublime.status_message(", ".join(self.package_set))
+        if not self.multiple or self.packages[index] == "(Done)":
+            if len(self.package_set) > 0:
+                GenerateKeymaps.run(self)
+        else:
+            self.window.show_quick_panel(self.packages, self.quick_panel_callback)
+
+    def handle_results(self, all_key_map):
+        output = GenerateOutput(all_key_map, self.show_args)
+
+        output_keymap = {}
+        conflict_key_map = self.remove_non_conflicts(all_key_map)
+        for key in conflict_key_map:
+            package_list = conflict_key_map[key]["packages"]
+            for package in self.package_set:
+                if package in package_list:
+                    output_keymap[key] = conflict_key_map[key]
+                    break
+
+        content = "Key conflicts involving the following packages:\n"
+        content += ", ".join(self.package_set) + "\n\n"
+        content += output.generate_header("Key Conflicts")
+        content += output.generate_key_map_text(output_keymap)
+        output.generate_file(content, "Key Conflicts")
 
 
 class FindKeyConflictsCall(threading.Thread):
