@@ -3,6 +3,7 @@ import sublime_plugin
 import os
 import json
 import threading
+import copy
 from minify_json import json_minify
 
 PACKAGES_PATH = sublime.packages_path()
@@ -257,61 +258,52 @@ class FindKeyMappingsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
 
 class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
     def run(self, multiple=False):
-        self.package_list = [[entry] for entry in GenerateKeymaps.generate_package_list(self)]
+        self.package_list = [entry for entry in GenerateKeymaps.generate_package_list(self)]
         self.multiple = multiple
         self.selected_list = []
+
         self.generate_quick_panel(self.package_list, self.package_list_callback)
-        # if multiple:
-        #     self.package_list.append(["(View Selected)"])
-        #     self.package_list.append(["(Done)"])
-        # self.window.show_quick_panel(self.package_list, self.package_list_callback)
 
     def generate_quick_panel(self, packages, callback):
+        self.quick_panel_list = copy.copy(packages)
         if self.multiple:
-            self.package_list.append(["(View Selected)"])
-            self.package_list.append(["(Done)"])
-        self.window.show_quick_panel(packages, callback)
+            self.quick_panel_list.append("(Toggle View)")
+            self.quick_panel_list.append("(Done)")
+        self.window.show_quick_panel(self.quick_panel_list, callback)
 
-    # TODO: Move to two separate list for selected and available.
-    # Available Packages List
-    # Selected Packages List
-    # Quick panel list
     def selected_list_callback(self, index):
         if index == -1:
             return
+        entry_text = self.quick_panel_list[index]
+        if entry_text != "(Toggle View)" and entry_text != "(Done)":
+            self.package_list.append(entry_text)
+            self.selected_list.remove(entry_text)
+        self.package_list.sort()
+
+        if entry_text == "(Done)":
+            if len(self.selected_list) > 0:
+                GenerateKeymaps.run(self)
+        elif entry_text == "(Toggle View)":
+            self.generate_quick_panel(self.package_list, self.package_list_callback)
+        else:
+            self.generate_quick_panel(self.selected_list, self.selected_list_callback)
 
     def package_list_callback(self, index):
         if index == -1:
             return
 
-        if not self.multiple or self.package_list[index][0] != "(Done)":
-            if len(self.package_list[index]) == 1:
-                self.selected_list.append(self.package_list[index][0])
-                self.package_list[index].append("(Remove)")
-            else:
-                self.selected_list.remove(self.package_list[index][0])
-                self.package_list[index].pop(1)
+        if self.quick_panel_list[index] != "(Done)" and self.quick_panel_list[index] != "(Toggle View)":
+            self.selected_list.append(self.quick_panel_list[index])
+            self.package_list.remove(self.quick_panel_list[index])
         self.selected_list.sort()
-        #sublime.status_message(", ".join(self.selected_list))
-        if not self.multiple or self.package_list[index][0] == "(Done)":
+
+        if not self.multiple or self.quick_panel_list[index] == "(Done)":
             if len(self.selected_list) > 0:
                 GenerateKeymaps.run(self)
+        elif self.quick_panel_list[index] == "(Toggle View)":
+            self.generate_quick_panel(self.selected_list, self.selected_list_callback)
         else:
-            self.package_list.pop(-1)
-            self.package_list.append(["(Done)"])
-            package_string = ""
-            for package in self.selected_list:
-
-                if len(package_string + package) > 60:
-                    self.package_list[-1].append(package_string)
-                    package_string = package
-                else:
-                    if len(package_string) != 0:
-                        package_string += ", "
-                    package_string += package
-
-            self.package_list[-1].append(package_string)
-            self.window.show_quick_panel(self.package_list, self.package_list_callback)
+            self.generate_quick_panel(self.package_list, self.package_list_callback)
 
     # TODO: Add overlapping conflicts
     def handle_results(self, all_key_map):
