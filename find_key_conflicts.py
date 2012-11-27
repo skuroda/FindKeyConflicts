@@ -257,60 +257,81 @@ class FindKeyMappingsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
 
 class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
     def run(self, multiple=False):
-        self.packages = [[entry] for entry in GenerateKeymaps.generate_package_list(self)]
+        self.package_list = [[entry] for entry in GenerateKeymaps.generate_package_list(self)]
         self.multiple = multiple
-        self.package_set = []
-        if multiple:
-            self.packages.append(["(Done)"])
-        self.window.show_quick_panel(self.packages, self.quick_panel_callback)
+        self.selected_list = []
+        self.generate_quick_panel(self.package_list, self.package_list_callback)
+        # if multiple:
+        #     self.package_list.append(["(View Selected)"])
+        #     self.package_list.append(["(Done)"])
+        # self.window.show_quick_panel(self.package_list, self.package_list_callback)
 
-    def quick_panel_callback(self, index):
+    def generate_quick_panel(self, packages, callback):
+        if self.multiple:
+            self.package_list.append(["(View Selected)"])
+            self.package_list.append(["(Done)"])
+        self.window.show_quick_panel(packages, callback)
+
+    # TODO: Move to two separate list for selected and available.
+    # Available Packages List
+    # Selected Packages List
+    # Quick panel list
+    def selected_list_callback(self, index):
         if index == -1:
             return
 
-        if not self.multiple or self.packages[index][0] != "(Done)":
-            if len(self.packages[index]) == 1:
-                self.package_set.append(self.packages[index][0])
-                self.packages[index].append("(Remove)")
+    def package_list_callback(self, index):
+        if index == -1:
+            return
+
+        if not self.multiple or self.package_list[index][0] != "(Done)":
+            if len(self.package_list[index]) == 1:
+                self.selected_list.append(self.package_list[index][0])
+                self.package_list[index].append("(Remove)")
             else:
-                self.package_set.remove(self.packages[index][0])
-                self.packages[index].pop(1)
-        self.package_set.sort()
-        #sublime.status_message(", ".join(self.package_set))
-        if not self.multiple or self.packages[index][0] == "(Done)":
-            if len(self.package_set) > 0:
+                self.selected_list.remove(self.package_list[index][0])
+                self.package_list[index].pop(1)
+        self.selected_list.sort()
+        #sublime.status_message(", ".join(self.selected_list))
+        if not self.multiple or self.package_list[index][0] == "(Done)":
+            if len(self.selected_list) > 0:
                 GenerateKeymaps.run(self)
         else:
-            self.packages.pop(-1)
-            self.packages.append(["(Done)"])
+            self.package_list.pop(-1)
+            self.package_list.append(["(Done)"])
             package_string = ""
-            for package in self.package_set:
+            for package in self.selected_list:
 
                 if len(package_string + package) > 60:
-                    self.packages[-1].append(package_string)
+                    self.package_list[-1].append(package_string)
                     package_string = package
                 else:
                     if len(package_string) != 0:
                         package_string += ", "
                     package_string += package
 
-            self.packages[-1].append(package_string)
-            self.window.show_quick_panel(self.packages, self.quick_panel_callback)
+            self.package_list[-1].append(package_string)
+            self.window.show_quick_panel(self.package_list, self.package_list_callback)
 
+    # TODO: Add overlapping conflicts
     def handle_results(self, all_key_map):
         output = GenerateOutput(all_key_map, self.show_args)
 
         output_keymap = {}
         conflict_key_map = self.remove_non_conflicts(all_key_map)
+        #overlapping_confilicts_map = self.find_overlap_conflicts(all_key_map)
         for key in conflict_key_map:
             package_list = conflict_key_map[key]["packages"]
-            for package in self.package_set:
+            for package in self.selected_list:
                 if package in package_list:
                     output_keymap[key] = conflict_key_map[key]
                     break
 
         content = "Key conflicts involving the following packages:\n"
-        content += ", ".join(self.package_set) + "\n\n"
+        content += ", ".join(self.selected_list) + "\n\n"
+
+        #content = output.generate_header("Multi Part Key Conflicts")
+        #content += output.generate_overlapping_key_text(overlapping_confilicts_map)
         content += output.generate_header("Key Conflicts")
         content += output.generate_key_map_text(output_keymap)
         output.generate_file(content, "Key Conflicts")
