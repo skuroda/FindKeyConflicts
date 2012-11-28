@@ -274,6 +274,7 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
     def selected_list_callback(self, index):
         if index == -1:
             return
+
         entry_text = self.quick_panel_list[index]
         if entry_text != "(Toggle View)" and entry_text != "(Done)":
             self.package_list.append(entry_text)
@@ -305,13 +306,13 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
         else:
             self.generate_quick_panel(self.package_list, self.package_list_callback)
 
-    # TODO: Add overlapping conflicts
     def handle_results(self, all_key_map):
         output = GenerateOutput(all_key_map, self.show_args)
 
         output_keymap = {}
+        overlapping_conflicts_map = {}
         conflict_key_map = self.remove_non_conflicts(all_key_map)
-        #overlapping_confilicts_map = self.find_overlap_conflicts(all_key_map)
+        all_overlapping_confilicts_map = self.find_overlap_conflicts(all_key_map)
         for key in conflict_key_map:
             package_list = conflict_key_map[key]["packages"]
             for package in self.selected_list:
@@ -319,11 +320,22 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
                     output_keymap[key] = conflict_key_map[key]
                     break
 
+        for overlap_base_key in all_overlapping_confilicts_map:
+            for package in self.selected_list:
+                if package in all_key_map[overlap_base_key]["packages"]:
+                    overlapping_conflicts_map[overlap_base_key] = all_overlapping_confilicts_map[overlap_base_key]
+                    break
+
+            for overlap_key in all_overlapping_confilicts_map[overlap_base_key]:
+                if package in all_key_map[overlap_key]["packages"]:
+                    overlapping_conflicts_map[overlap_base_key] = all_overlapping_confilicts_map[overlap_base_key]
+                    break
+
         content = "Key conflicts involving the following packages:\n"
         content += ", ".join(self.selected_list) + "\n\n"
 
-        #content = output.generate_header("Multi Part Key Conflicts")
-        #content += output.generate_overlapping_key_text(overlapping_confilicts_map)
+        content = output.generate_header("Multi Part Key Conflicts")
+        content += output.generate_overlapping_key_text(overlapping_conflicts_map)
         content += output.generate_header("Key Conflicts")
         content += output.generate_key_map_text(output_keymap)
         output.generate_file(content, "Key Conflicts")
