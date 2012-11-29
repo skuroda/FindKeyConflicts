@@ -1,0 +1,9 @@
+New Features:
+- Add command to display overlapping conflicts.
+- Add command to display conflicts from selected packages.
+
+Please see the README for more information about using these new features.
+
+Bug Fixes:
+- Prevent non directory files from being added to the packages list.
+- Fix for minifier where comments occur on the last line.

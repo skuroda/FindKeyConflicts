@@ -10,6 +10,10 @@ PACKAGES_PATH = sublime.packages_path()
 PLATFORM = sublime.platform()
 MODIFIERS = ('shift', 'ctrl', 'alt', 'super')
 
+DONE_TEXT = "(Done)"
+VIEW_SELECTED_LIST_TEXT = "(View Selected)"
+VIEW_PACKAGES_LIST_TEXT = "(View Packages)"
+
 
 class GenerateKeymaps(object):
     def run(self):
@@ -124,9 +128,9 @@ class GenerateOutput(object):
         keys.sort()
         potential_conflicts_keys = conflict_map.keys()
         potential_conflicts_keys.sort()
-        offset = 4
+        offset = 2
         for key_string in potential_conflicts_keys:
-            content += self.generate_text(key_string, self.all_key_map, offset / 2)
+            content += self.generate_text(key_string, self.all_key_map, 0)
             for conflict in conflict_map[key_string]:
                 content += self.generate_text(conflict, self.all_key_map, offset, "(", ")")
         return content
@@ -242,7 +246,7 @@ class FindOverlapConflictsCommand(GenerateKeymaps, sublime_plugin.WindowCommand)
 
         content = output.generate_header("Multi Part Key Conflicts")
         content += output.generate_overlapping_key_text(overlapping_confilicts_map)
-        output.generate_file(content,  "All Key Conflicts")
+        output.generate_file(content,  "Overlap Key Conflicts")
 
 
 class FindKeyMappingsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
@@ -268,10 +272,10 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
         self.quick_panel_list = copy.copy(packages)
         if self.multiple:
             if selected_list:
-                self.quick_panel_list.append("(View Packages)")
+                self.quick_panel_list.append(VIEW_PACKAGES_LIST_TEXT)
             else:
-                self.quick_panel_list.append("(View Selected)")
-            self.quick_panel_list.append("(Done)")
+                self.quick_panel_list.append(VIEW_SELECTED_LIST_TEXT)
+            self.quick_panel_list.append(DONE_TEXT)
         self.window.show_quick_panel(self.quick_panel_list, callback)
 
     def selected_list_callback(self, index):
@@ -279,15 +283,15 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
             return
 
         entry_text = self.quick_panel_list[index]
-        if entry_text != "(View Packages)" and entry_text != "(Done)":
+        if entry_text != VIEW_PACKAGES_LIST_TEXT and entry_text != DONE_TEXT:
             self.package_list.append(entry_text)
             self.selected_list.remove(entry_text)
         self.package_list.sort()
 
-        if entry_text == "(Done)":
+        if entry_text == DONE_TEXT:
             if len(self.selected_list) > 0:
                 GenerateKeymaps.run(self)
-        elif entry_text == "(View Packages)":
+        elif entry_text == VIEW_PACKAGES_LIST_TEXT:
             self.generate_quick_panel(self.package_list, self.package_list_callback, False)
         else:
             self.generate_quick_panel(self.selected_list, self.selected_list_callback, True)
@@ -296,15 +300,15 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
         if index == -1:
             return
 
-        if self.quick_panel_list[index] != "(Done)" and self.quick_panel_list[index] != "(View Selected)":
+        if self.quick_panel_list[index] != DONE_TEXT and self.quick_panel_list[index] != VIEW_SELECTED_LIST_TEXT:
             self.selected_list.append(self.quick_panel_list[index])
             self.package_list.remove(self.quick_panel_list[index])
         self.selected_list.sort()
 
-        if not self.multiple or self.quick_panel_list[index] == "(Done)":
+        if not self.multiple or self.quick_panel_list[index] == DONE_TEXT:
             if len(self.selected_list) > 0:
                 GenerateKeymaps.run(self)
-        elif self.quick_panel_list[index] == "(View Selected)":
+        elif self.quick_panel_list[index] == VIEW_SELECTED_LIST_TEXT:
             self.generate_quick_panel(self.selected_list, self.selected_list_callback, True)
         else:
             self.generate_quick_panel(self.package_list, self.package_list_callback, False)
