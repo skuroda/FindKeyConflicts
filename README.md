@@ -38,6 +38,14 @@ Displays key bindings that overlap with mutli part key bindings in a buffer. For
 
 Displays all conflicts in a buffer. This option will include both direct and overlapping conflicts.
 
+`FindKeyConflicts: Single Package Conflicts`:
+
+Displays conflicts that involve the selected package. 
+
+`FindKeyConflicts: Multiple Package Conflicts`:
+
+Displays conflicts that involve the selected packages. Select `(Done)` when you are done selecting packages. You may use `(View Selected)` and `(View Packages)` to view the selected packages and the package list respsectively.  Also, you may remove packages from the selected list by pressing `enter` when viewing the selected packages list.
+
 ## Settings
 `ignored_packages`: 
 
@@ -54,11 +62,6 @@ Array containing key patterns to ignore. These should follow the same guidelines
 `display_internal_conflicts`:
 
 Boolean value used to determine if internal command conflicts to a package should be displayed.
-
-`debug`:
-
-Setting to control if debugging is enabled.
-
 
 ## Notes
 Thanks to [bizoo](https://github.com/bizoo) for sharing their work with me.

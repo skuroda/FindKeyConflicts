@@ -174,7 +174,7 @@ class GenerateOutput(object):
 
         return content
 
-    def generate_quickpanel(self, key_map):
+    def generate_output_quick_panel(self, key_map):
         self.key_map = key_map
         quick_panel_items = []
         keylist = key_map.keys()
@@ -207,7 +207,7 @@ class FindKeyConflictsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
 
         new_key_map = self.remove_non_conflicts(all_key_map)
         if self.output == "quick_panel":
-            output.generate_quickpanel(new_key_map)
+            output.generate_output_quick_panel(new_key_map)
         elif self.output == "buffer":
             content = output.generate_header("Key Conflicts (Only direct conflicts)")
             content += output.generate_key_map_text(new_key_map)
@@ -262,12 +262,15 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
         self.multiple = multiple
         self.selected_list = []
 
-        self.generate_quick_panel(self.package_list, self.package_list_callback)
+        self.generate_quick_panel(self.package_list, self.package_list_callback, False)
 
-    def generate_quick_panel(self, packages, callback):
+    def generate_quick_panel(self, packages, callback, selected_list):
         self.quick_panel_list = copy.copy(packages)
         if self.multiple:
-            self.quick_panel_list.append("(Toggle View)")
+            if selected_list:
+                self.quick_panel_list.append("(View Packages)")
+            else:
+                self.quick_panel_list.append("(View Selected)")
             self.quick_panel_list.append("(Done)")
         self.window.show_quick_panel(self.quick_panel_list, callback)
 
@@ -276,7 +279,7 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
             return
 
         entry_text = self.quick_panel_list[index]
-        if entry_text != "(Toggle View)" and entry_text != "(Done)":
+        if entry_text != "(View Packages)" and entry_text != "(Done)":
             self.package_list.append(entry_text)
             self.selected_list.remove(entry_text)
         self.package_list.sort()
@@ -284,16 +287,16 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
         if entry_text == "(Done)":
             if len(self.selected_list) > 0:
                 GenerateKeymaps.run(self)
-        elif entry_text == "(Toggle View)":
-            self.generate_quick_panel(self.package_list, self.package_list_callback)
+        elif entry_text == "(View Packages)":
+            self.generate_quick_panel(self.package_list, self.package_list_callback, False)
         else:
-            self.generate_quick_panel(self.selected_list, self.selected_list_callback)
+            self.generate_quick_panel(self.selected_list, self.selected_list_callback, True)
 
     def package_list_callback(self, index):
         if index == -1:
             return
 
-        if self.quick_panel_list[index] != "(Done)" and self.quick_panel_list[index] != "(Toggle View)":
+        if self.quick_panel_list[index] != "(Done)" and self.quick_panel_list[index] != "(View Selected)":
             self.selected_list.append(self.quick_panel_list[index])
             self.package_list.remove(self.quick_panel_list[index])
         self.selected_list.sort()
@@ -301,10 +304,10 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
         if not self.multiple or self.quick_panel_list[index] == "(Done)":
             if len(self.selected_list) > 0:
                 GenerateKeymaps.run(self)
-        elif self.quick_panel_list[index] == "(Toggle View)":
-            self.generate_quick_panel(self.selected_list, self.selected_list_callback)
+        elif self.quick_panel_list[index] == "(View Selected)":
+            self.generate_quick_panel(self.selected_list, self.selected_list_callback, True)
         else:
-            self.generate_quick_panel(self.package_list, self.package_list_callback)
+            self.generate_quick_panel(self.package_list, self.package_list_callback, False)
 
     def handle_results(self, all_key_map):
         output = GenerateOutput(all_key_map, self.show_args)
@@ -334,7 +337,7 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
         content = "Key conflicts involving the following packages:\n"
         content += ", ".join(self.selected_list) + "\n\n"
 
-        content = output.generate_header("Multi Part Key Conflicts")
+        content += output.generate_header("Multi Part Key Conflicts")
         content += output.generate_overlapping_key_text(overlapping_conflicts_map)
         content += output.generate_header("Key Conflicts")
         content += output.generate_key_map_text(output_keymap)
