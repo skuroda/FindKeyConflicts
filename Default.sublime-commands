@@ -9,8 +9,13 @@
         "args": {"output": "buffer"}
     },
     {
-        "caption": "FindKeyConflicts: All Key Maps",
+        "caption": "FindKeyConflicts: All Key Maps to Quick Panel",
         "command": "find_key_mappings"
+    },
+    {
+        "caption": "FindKeyConflicts: All Key Maps to Buffer",
+        "command": "find_key_mappings",
+        "args": {"output": "buffer"}
     },
     {
         "caption": "FindKeyConflicts: All Conflicts",

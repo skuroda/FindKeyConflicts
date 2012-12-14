@@ -246,14 +246,20 @@ class FindOverlapConflictsCommand(GenerateKeymaps, sublime_plugin.WindowCommand)
 
 
 class FindKeyMappingsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
-    def run(self):
+    def run(self, output="quick_panel"):
+        self.output = output
         GenerateKeymaps.run(self)
 
     def handle_results(self, all_key_map):
-        output = GenerateOutput(all_key_map, self.show_args)
-        content = output.generate_header("All Key Mappings")
-        content += output.generate_key_map_text(all_key_map)
-        output.generate_file(content, "All Key Mappings")
+        output = GenerateOutput(all_key_map, self.show_args, self.window)
+        if self.output == "quick_panel":
+            output.generate_output_quick_panel(all_key_map)
+        elif self.output == "buffer":
+            content = output.generate_header("All Key Mappings")
+            content += output.generate_key_map_text(all_key_map)
+            output.generate_file(content, "All Key Mappings")
+        else:
+            print "FindKeyConflicts[Warning]: Invalid output type specified"
 
 
 class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
@@ -399,7 +405,8 @@ class FindKeyConflictsCall(threading.Thread):
 
                 for entry in key_map:
                     keys = entry["keys"]
-
+                    if "context" in entry:
+                        entry["context"].sort()
                     key_array = []
                     key_string = ""
                     for key in keys:
