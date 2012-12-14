@@ -18,7 +18,11 @@ Installation through [package control](http://wbond.net/sublime_packages/package
 ## Usage
 This plugin can be run through specifying commands on the command palette. The commands are listed in alphabetical order, beginning with modifiers (alt, cntl, shift, super), followed by keys. The commands are as follows:
 
-`FindKeyConflicts: All Key Maps`:
+`FindKeyConflicts: All Key Maps to Quick Panel`:
+
+Displays all key mappings in a quick panel. Selecting an entry will open a buffer with additional details about the key binding.
+
+`FindKeyConflicts: All Key Maps to Buffer`:
 
 Displays all key mappings in a buffer.
 
