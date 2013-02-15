@@ -408,7 +408,7 @@ class FindKeyConflictsCommandSearchCommand(GenerateKeymaps, sublime_plugin.Windo
         command = self.key_bindings[index]["command"]
         args = None
         if "args" in self.key_bindings[index]:
-            args = self.key_binding[index]["args"]
+            args = self.key_bindings[index]["args"]
         view = self.window.active_view()
         if view is not None:
             view.run_command(command, args)
