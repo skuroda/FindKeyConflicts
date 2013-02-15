@@ -1,0 +1,4 @@
+New Features:
+- Add command to view commands for a particular package. Upon selecting the command, it will be run.
+
+Please see the README for more information about using these new features.

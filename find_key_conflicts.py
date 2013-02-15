@@ -4,6 +4,7 @@ import os
 import json
 import threading
 import copy
+import logging
 from minify_json import json_minify
 
 PACKAGES_PATH = sublime.packages_path()
@@ -14,9 +15,14 @@ DONE_TEXT = "(Done)"
 VIEW_SELECTED_LIST_TEXT = "(View Selected)"
 VIEW_PACKAGES_LIST_TEXT = "(View Packages)"
 
+# Set up logger
+logging.basicConfig(format='[AdvancedNewFile] %(levelname)s %(message)s')
+logger = logging.getLogger()
+logger.setLevel(logging.WARNING)
+
 
 class GenerateKeymaps(object):
-    def run(self):
+    def run(self, package=None):
         plugin_settings = sublime.load_settings("FindKeyConflicts.sublime-settings")
 
         self.window = self.window
@@ -25,8 +31,11 @@ class GenerateKeymaps(object):
         self.show_args = plugin_settings.get("show_args", False)
 
         packages = self.generate_package_list()
+        if package is None:
+            thread = FindKeyConflictsCall(plugin_settings, packages)
+        else:
+            thread = FindPackageCommandsCall(plugin_settings, package)
 
-        thread = FindKeyConflictsCall(plugin_settings, packages)
         thread.start()
         self.handle_thread(thread)
 
@@ -83,7 +92,7 @@ class GenerateKeymaps(object):
             try:
                 packages.remove(ignored_package)
             except:
-                print "FindKeyConflicts: Package '" + ignored_package + "' does not exist."
+                logger.warning("FindKeyConflicts: Package '" + ignored_package + "' does not exist.")
 
         return packages
 
@@ -217,7 +226,7 @@ class FindKeyConflictsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
             content += output.generate_key_map_text(new_key_map)
             output.generate_file(content, "Key Conflicts")
         else:
-            print "FindKeyConflicts[Warning]: Invalid output type specified"
+            logger.warning("FindKeyConflicts[Warning]: Invalid output type specified")
 
 
 class FindAllKeyConflictsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
@@ -263,7 +272,7 @@ class FindKeyMappingsCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
             content += output.generate_key_map_text(all_key_map)
             output.generate_file(content, "All Key Mappings")
         else:
-            print "FindKeyConflicts[Warning]: Invalid output type specified"
+            logger.warning("FindKeyConflicts[Warning]: Invalid output type specified")
 
 
 class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
@@ -354,36 +363,61 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
         output.generate_file(content, "Key Conflicts")
 
 
-class FindKeyConflictsCall(threading.Thread):
-    def __init__(self, settings, packages):
-        self.ignore_single_key = settings.get("ignore_single_key", False)
-        self.ignore_patterns = settings.get("ignore_patterns", [])
-        self.packages = packages
-        self.all_key_map = {}
-        self.debug_minified = {}
-        self.debug = settings.get("debug", False)
-        self.prev_error = False
-        threading.Thread.__init__(self)
-
+class FindKeyConflictsCommandSearchCommand(GenerateKeymaps, sublime_plugin.WindowCommand):
     def run(self):
-        run_user = False
-        temp = []
-        for ignore_pattern in self.ignore_patterns:
-            temp.append(self.order_key_string(ignore_pattern))
-        self.ignore_patterns = temp
-        if "Default" in self.packages:
-            self.check_for_conflicts("Default")
-            self.packages.remove("Default")
-        if "User" in self.packages:
-            run_user = True
-            self.packages.remove("User")
+        packages = [entry for entry in GenerateKeymaps.generate_package_list(self)]
+        self.package_list = []
 
-        for package in self.packages:
-            self.check_for_conflicts(package)
-        if run_user:
-            self.check_for_conflicts("User")
+        for package in packages:
+            orig_path = os.path.join(PACKAGES_PATH, package)
+            contains_keymap = False
+            for filename in os.listdir(orig_path):
+                if filename.lower() == "default.sublime-keymap" or \
+                filename.lower() == "default (%s).sublime-keymap" % (PLATFORM.lower()):
+                    self.package_list.append(package)
+                    contains_keymap = True
+                    break
+            if contains_keymap:
+                continue
 
-    def check_for_conflicts(self, package):
+        self.generate_quick_panel(self.package_list, self.package_list_callback)
+
+    def generate_quick_panel(self, packages, callback):
+        self.window.show_quick_panel(packages, callback)
+
+    def package_list_callback(self, index):
+        if index == -1:
+            return
+        GenerateKeymaps.run(self, self.package_list[index])
+
+    def handle_results(self, key_binding_commands):
+        self.key_bindings = key_binding_commands
+        entries = []
+        for key_entry in key_binding_commands:
+            entry = []
+            entry.append(str(key_entry["command"]).encode("ascii"))
+            entry.append(str(key_entry["keys"]).encode("ascii"))
+            if "args" in key_entry:
+                entry.append(str(key_entry["args"]))
+            entries.append(entry)
+        self.window.show_quick_panel(entries, self.entry_callback)
+
+    def entry_callback(self, index):
+        if index == -1:
+            return
+        command = self.key_bindings[index]["command"]
+        args = None
+        if "args" in self.key_bindings[index]:
+            args = self.key_binding[index]["args"]
+        view = self.window.active_view()
+        if view is not None:
+            view.run_command(command, args)
+        self.window.run_command(command, args)
+        sublime.run_command(command, args)
+
+
+class ThreadBase(threading.Thread):
+    def manage_package(self, package):
         orig_path = os.path.join(PACKAGES_PATH, package)
         self.done = False
 
@@ -403,37 +437,9 @@ class FindKeyConflictsCall(threading.Thread):
                         self.prev_error = True
                         sublime.error_message("Could not parse a keymap file. See console for details")
                     error_path = os.path.join(os.path.basename(orig_path), filename)
-                    print "FindKeyConflicts[Warning]: An error " + \
-                          "occured while parsing '" + error_path + "'"
+                    logger.warning("FindKeyConflicts[Warning]: An error " + "occured while parsing '" + error_path + "'")
                     continue
-
-                for entry in key_map:
-                    keys = entry["keys"]
-                    if "context" in entry:
-                        entry["context"].sort()
-                    key_array = []
-                    key_string = ""
-                    for key in keys:
-                        key_array.append(self.order_key_string(key))
-
-                    if self.check_ignore(key_array):
-                        continue
-                    key_string = ",".join(key_array)
-
-                    if key_string in self.all_key_map:
-                        tmp = self.all_key_map.get(key_string)
-                        if package not in tmp["packages"]:
-                            tmp["packages"].append(package)
-                            tmp[package] = [entry]
-                        else:
-                            tmp[package].append(entry)
-
-                        self.all_key_map[key_string] = tmp
-                    else:
-                        new_entry = {}
-                        new_entry["packages"] = [package]
-                        new_entry[package] = [entry]
-                        self.all_key_map[key_string] = new_entry
+                self.handle_key_map(package, key_map)
         self.done = True
 
     def check_ignore(self, key_array):
@@ -476,3 +482,91 @@ class FindKeyConflictsCall(threading.Thread):
         keys.sort()
         ordered_key_string = "+".join(modifiers + keys)
         return ordered_key_string
+
+    def handle_key_map(self, package, key_map):
+        raise NotImplementedError("Should have implemented this")
+
+
+class FindKeyConflictsCall(ThreadBase):
+    def __init__(self, settings, packages):
+        self.ignore_single_key = settings.get("ignore_single_key", False)
+        self.ignore_patterns = settings.get("ignore_patterns", [])
+        self.packages = packages
+        self.all_key_map = {}
+        self.debug_minified = {}
+        self.debug = settings.get("debug", False)
+        self.prev_error = False
+        threading.Thread.__init__(self)
+
+    def run(self):
+        run_user = False
+        temp = []
+        for ignore_pattern in self.ignore_patterns:
+            temp.append(self.order_key_string(ignore_pattern))
+        self.ignore_patterns = temp
+        if "Default" in self.packages:
+            self.manage_package("Default")
+            self.packages.remove("Default")
+        if "User" in self.packages:
+            run_user = True
+            self.packages.remove("User")
+
+        for package in self.packages:
+            self.manage_package(package)
+        if run_user:
+            self.manage_package("User")
+
+    def handle_key_map(self, package, key_map):
+        for entry in key_map:
+            keys = entry["keys"]
+            if "context" in entry:
+                entry["context"].sort()
+            key_array = []
+            key_string = ""
+            for key in keys:
+                key_array.append(self.order_key_string(key))
+
+            if self.check_ignore(key_array):
+                continue
+            key_string = ",".join(key_array)
+
+            if key_string in self.all_key_map:
+                tmp = self.all_key_map.get(key_string)
+                if package not in tmp["packages"]:
+                    tmp["packages"].append(package)
+                    tmp[package] = [entry]
+                else:
+                    tmp[package].append(entry)
+
+                self.all_key_map[key_string] = tmp
+            else:
+                new_entry = {}
+                new_entry["packages"] = [package]
+                new_entry[package] = [entry]
+                self.all_key_map[key_string] = new_entry
+
+
+class FindPackageCommandsCall(ThreadBase):
+    def __init__(self, settings, package):
+        self.package = package
+        self.all_key_map = []
+        self.debug_minified = {}
+        self.debug = settings.get("debug", False)
+        self.prev_error = False
+        threading.Thread.__init__(self)
+
+    def run(self):
+        self.manage_package(self.package)
+
+    def handle_key_map(self, package, key_map):
+        for entry in key_map:
+            keys = entry["keys"]
+            key_array = []
+            key_string = ""
+            for key in keys:
+                key_array.append(self.order_key_string(key))
+
+            key_string = ",".join(key_array)
+
+            entry["keys"] = key_string
+            self.all_key_map.append(entry)

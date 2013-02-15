@@ -44,14 +44,18 @@ Displays all conflicts in a buffer. This option will include both direct and ove
 
 `FindKeyConflicts: Single Package Conflicts`:
 
-Displays conflicts that involve the selected package. 
+Displays conflicts that involve the selected package.
 
 `FindKeyConflicts: Multiple Package Conflicts`:
 
 Displays conflicts that involve the selected packages. Select `(Done)` when you are done selecting packages. You may use `(View Selected)` and `(View Packages)` to view the selected packages and the package list respsectively.  Also, you may remove packages from the selected list by pressing `enter` when viewing the selected packages list.
 
+`FindKeyConflicts: Command Search`:
+
+Display a list of the packages containing keymap files. After selecting a package, a list of commands will be displayed in the quick panel. Selecting a command from the subsequent list will run the command.
+
 ## Settings
-`ignored_packages`: 
+`ignored_packages`:
 
 An array containing packages to ignore. Note that the `ignored_packages` in the Preferences are automatically added to this list.
 

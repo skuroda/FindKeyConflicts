@@ -33,5 +33,9 @@
         "caption": "FindKeyConflicts: Multiple Pacakge Conflicts",
         "command": "find_key_conflicts_with_package",
         "args": {"multiple": true}
+    },
+    {
+        "caption": "FindKeyConflicts: Command Search",
+        "command": "find_key_conflicts_command_search"
     }
 ]
