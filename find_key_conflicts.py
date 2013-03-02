@@ -5,10 +5,24 @@ import json
 import threading
 import copy
 import logging
-from minify_json import json_minify
+import traceback
+
+VERSION = int(sublime.version())
+
+if VERSION >=3006:
+    from FindKeyConflicts.lib.package_resources import *
+    from FindKeyConflicts.lib.strip_commas import strip_dangling_commas
+    from FindKeyConflicts.lib.minify_json import json_minify
+else:
+    from lib.package_resources import *
+    from lib.strip_commas import strip_dangling_commas
+    from lib.minify_json import json_minify
+
 
 PACKAGES_PATH = sublime.packages_path()
-PLATFORM = sublime.platform()
+PLATFORM = sublime.platform().title()
+if PLATFORM == "Osx":
+    PLATFORM = "OSX"
 MODIFIERS = ('shift', 'ctrl', 'alt', 'super')
 
 DONE_TEXT = "(Done)"
@@ -16,7 +30,7 @@ VIEW_SELECTED_LIST_TEXT = "(View Selected)"
 VIEW_PACKAGES_LIST_TEXT = "(View Packages)"
 
 # Set up logger
-logging.basicConfig(format='[AdvancedNewFile] %(levelname)s %(message)s')
+logging.basicConfig(format='[FindKeyConflicts] %(levelname)s %(message)s')
 logger = logging.getLogger()
 logger.setLevel(logging.WARNING)
 
@@ -30,7 +44,7 @@ class GenerateKeymaps(object):
         self.display_internal_conflicts = plugin_settings.get("display_internal_conflicts", True)
         self.show_args = plugin_settings.get("show_args", False)
 
-        packages = self.generate_package_list()
+        packages = get_packages_list()
         if package is None:
             thread = FindKeyConflictsCall(plugin_settings, packages)
         else:
@@ -42,7 +56,7 @@ class GenerateKeymaps(object):
     def generate_package_list(self):
         plugin_settings = sublime.load_settings("FindKeyConflicts.sublime-settings")
         view = self.window.active_view()
-        packages = [o for o in os.listdir(PACKAGES_PATH) if os.path.isdir(os.path.join(PACKAGES_PATH, o))]
+        packages = get_packages_list()
         packages.sort()
 
         ignored_packages = view.settings().get("ignored_packages", [])
@@ -79,9 +93,7 @@ class GenerateKeymaps(object):
                 panel.set_scratch(True)
                 panel.settings().set('word_wrap', False)
                 panel.set_name("Debug")
-                panel_edit = panel.begin_edit()
-                panel.insert(panel_edit, 0, content)
-                panel.end_edit(panel_edit)
+                panel.run_command("insert_content", {"content": content})
             self.handle_results(thread.all_key_map)
 
     def handle_results(self, all_key_map):
@@ -97,7 +109,8 @@ class GenerateKeymaps(object):
         return packages
 
     def remove_non_conflicts(self, all_key_map):
-        keylist = all_key_map.keys()
+        keylist = list(all_key_map.keys())
+
         keylist.sort()
         new_key_map = {}
         for key in keylist:
@@ -109,7 +122,7 @@ class GenerateKeymaps(object):
         return new_key_map
 
     def find_overlap_conflicts(self, all_key_map):
-        keylist = all_key_map.keys()
+        keylist = list(all_key_map.keys())
         keylist.sort()
         conflicts = {}
         for key in keylist:
@@ -133,9 +146,9 @@ class GenerateOutput(object):
 
     def generate_overlapping_key_text(self, conflict_map):
         content = ""
-        keys = conflict_map.keys()
+        keys = list(conflict_map.keys())
         keys.sort()
-        potential_conflicts_keys = conflict_map.keys()
+        potential_conflicts_keys = list(conflict_map.keys())
         potential_conflicts_keys.sort()
         offset = 2
         for key_string in potential_conflicts_keys:
@@ -146,7 +159,7 @@ class GenerateOutput(object):
 
     def generate_key_map_text(self, key_map):
         content = ''
-        keys = key_map.keys()
+        keys = list(key_map.keys())
 
         keys.sort()
         for key_string in keys:
@@ -160,9 +173,7 @@ class GenerateOutput(object):
         panel.settings().set('word_wrap', False)
         panel.set_name(name)
         # content output
-        panel_edit = panel.begin_edit()
-        panel.insert(panel_edit, 0, content)
-        panel.end_edit(panel_edit)
+        panel.run_command("insert_content", {"content": content})
 
     def longest_command_length(self, key_map):
         pass
@@ -190,7 +201,7 @@ class GenerateOutput(object):
     def generate_output_quick_panel(self, key_map):
         self.key_map = key_map
         quick_panel_items = []
-        keylist = key_map.keys()
+        keylist = list(key_map.keys())
         keylist.sort()
         self.list = []
         for key in keylist:
@@ -291,7 +302,7 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
             else:
                 self.quick_panel_list.append(VIEW_SELECTED_LIST_TEXT)
             self.quick_panel_list.append(DONE_TEXT)
-        self.window.show_quick_panel(self.quick_panel_list, callback)
+        sublime.set_timeout(lambda: self.window.show_quick_panel(self.quick_panel_list, callback), 10)
 
     def selected_list_callback(self, index):
         if index == -1:
@@ -369,16 +380,9 @@ class FindKeyConflictsCommandSearchCommand(GenerateKeymaps, sublime_plugin.Windo
         self.package_list = []
 
         for package in packages:
-            orig_path = os.path.join(PACKAGES_PATH, package)
-            contains_keymap = False
-            for filename in os.listdir(orig_path):
-                if filename.lower() == "default.sublime-keymap" or \
-                filename.lower() == "default (%s).sublime-keymap" % (PLATFORM.lower()):
-                    self.package_list.append(package)
-                    contains_keymap = True
-                    break
-            if contains_keymap:
-                continue
+            if len(find_resource("Default( \(%s\))?.sublime-keymap$" % PLATFORM, package)) > 0:
+                self.package_list.append(package)
+
 
         self.generate_quick_panel(self.package_list, self.package_list_callback)
 
@@ -395,8 +399,8 @@ class FindKeyConflictsCommandSearchCommand(GenerateKeymaps, sublime_plugin.Windo
         entries = []
         for key_entry in key_binding_commands:
             entry = []
-            entry.append(str(key_entry["command"]).encode("ascii"))
-            entry.append(str(key_entry["keys"]).encode("ascii"))
+            entry.append(str(key_entry["command"]))
+            entry.append(str(key_entry["keys"]))
             if "args" in key_entry:
                 entry.append(str(key_entry["args"]))
             entries.append(entry)
@@ -415,29 +419,33 @@ class FindKeyConflictsCommandSearchCommand(GenerateKeymaps, sublime_plugin.Windo
         self.window.run_command(command, args)
         sublime.run_command(command, args)
 
-
 class ThreadBase(threading.Thread):
     def manage_package(self, package):
-        orig_path = os.path.join(PACKAGES_PATH, package)
         self.done = False
+        file_list = list_package_files(package)
+        platform_keymap = "default (%s).sublime-keymap" % (PLATFORM.lower())
+        for filename in file_list:
 
-        for filename in os.listdir(orig_path):
-            if filename.lower() == "default.sublime-keymap" or \
-            filename.lower() == "default (%s).sublime-keymap" % (PLATFORM.lower()):
-                path = os.path.join(orig_path, filename)
+            if filename.lower().endswith("default.sublime-keymap")or \
+            filename.lower().endswith(platform_keymap):
+                content = get_resource(package, filename)
+                if content == None:
+                    continue
 
-                content = open(path).read()
                 try:
                     minified_content = json_minify(content)
+                    minified_content = strip_dangling_commas(minified_content)
+                    minified_content = minified_content.replace("\n", "\\\n")
                     if self.debug:
                         self.debug_minified[package] = minified_content
                     key_map = json.loads(minified_content)
                 except:
                     if not self.prev_error:
+                        traceback.print_exc()
                         self.prev_error = True
                         sublime.error_message("Could not parse a keymap file. See console for details")
-                    error_path = os.path.join(os.path.basename(orig_path), filename)
-                    logger.warning("FindKeyConflicts[Warning]: An error " + "occured while parsing '" + error_path + "'")
+                    #error_path = os.path.join(os.path.basename(orig_path), filename)
+                    logger.warning("FindKeyConflicts[Warning]: An error " + "occured while parsing '" + package + "'")
                     continue
                 self.handle_key_map(package, key_map)
         self.done = True
@@ -519,8 +527,9 @@ class FindKeyConflictsCall(ThreadBase):
     def handle_key_map(self, package, key_map):
         for entry in key_map:
             keys = entry["keys"]
-            if "context" in entry:
-                entry["context"].sort()
+            # if "context" in entry:
+            #     print(entry["context"])
+            #     entry["context"].sort()
             key_array = []
             key_string = ""
             for key in keys:
@@ -570,3 +579,7 @@ class FindPackageCommandsCall(ThreadBase):
 
             entry["keys"] = key_string
             self.all_key_map.append(entry)
+
+class InsertContentCommand(sublime_plugin.TextCommand):
+    def run(self, edit, content):
+        self.view.insert(edit, 0, content)
