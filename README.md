@@ -73,3 +73,5 @@ Boolean value used to determine if internal command conflicts to a package shoul
 
 ## Notes
 Thanks to [bizoo](https://github.com/bizoo) for sharing their work with me.
+Thanks to [getify](https://github.com/getify) for the json minifier.
+Thanks to [facelessuser](https://github.com/facelessuser) for the strip dangling commas work.
