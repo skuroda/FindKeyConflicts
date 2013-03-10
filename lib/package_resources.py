@@ -2,7 +2,7 @@
 MIT License
 Copyright (c) 2013 Scott Kuroda <scott.kuroda@gmail.com>
 
-SHA: a4e5c69eb76be492886c8103a1bb6ef77f81960c
+SHA: d10b8514a1a7c06ef18677ef07256db65aefff4f
 """
 import sublime
 import os
@@ -35,9 +35,9 @@ def _get_resource(package_name, resource, return_binary=False, encoding="utf-8")
     if VERSION > 3013:
         try:
             if return_binary:
-                content = sublime.load_binary_resource("Package/" + package_name + "/" + resource)
+                content = sublime.load_binary_resource("Packages/" + package_name + "/" + resource)
             else:
-                content = sublime.load_resource("Package/" + package_name + "/" + resource)
+                content = sublime.load_resource("Packages/" + package_name + "/" + resource)
         except IOError:
             pass
     else:
