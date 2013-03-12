@@ -433,12 +433,15 @@ class ThreadBase(threading.Thread):
                     continue
 
                 try:
-                    minified_content = json_minify(content)
-                    minified_content = strip_dangling_commas(minified_content)
-                    minified_content = minified_content.replace("\n", "\\\n")
-                    if self.debug:
-                        self.debug_minified[package] = minified_content
-                    key_map = json.loads(minified_content)
+                    if VERSION < 3013:
+                        minified_content = json_minify(content)
+                        minified_content = strip_dangling_commas(minified_content)
+                        minified_content = minified_content.replace("\n", "\\\n")
+                        if self.debug:
+                            self.debug_minified[package] = minified_content
+                        key_map = json.loads(minified_content)
+                    else:
+                        key_map = sublime.decode_value(content)
                 except:
                     if not self.prev_error:
                         traceback.print_exc()
