@@ -30,7 +30,7 @@
         "command": "find_key_conflicts_with_package"
     },
     {
-        "caption": "FindKeyConflicts: Multiple Pacakge Conflicts",
+        "caption": "FindKeyConflicts: Multiple Package Conflicts",
         "command": "find_key_conflicts_with_package",
         "args": {"multiple": true}
     },
