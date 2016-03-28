@@ -6,6 +6,7 @@ import threading
 import copy
 import logging
 import traceback
+import sys
 
 VERSION = int(sublime.version())
 
