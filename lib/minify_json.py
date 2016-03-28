@@ -1,71 +1,60 @@
-'''
-Created on 20/01/2011
-
-v0.1 (C) Gerald Storer
-MIT License
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-
-Based on JSON.minify.js:
-https://github.com/getify/JSON.minify
-'''
+"""A port of the `JSON-minify` utility to the Python language.
+Based on JSON.minify.js: https://github.com/getify/JSON.minify
+Contributers:
+  - Gerald Storer
+    - Contributed original version
+  - Felipe Machado
+    - Performance optimization
+  - Pradyun S. Gedam
+    - Conditions and variable names changed
+    - Reformatted tests and moved to separate file
+    - Made into a PyPI Package
+"""
 
 import re
 
-def json_minify(json,strip_space=True):
-    tokenizer=re.compile('"|(/\*)|(\*/)|(//)|\n|\r')
+
+def json_minify(string, strip_space=True):
+    tokenizer = re.compile('"|(/\*)|(\*/)|(//)|\n|\r')
+    end_slashes_re = re.compile(r'(\\)*$')
+
     in_string = False
-    in_multiline_comment = False
-    in_singleline_comment = False
+    in_multi = False
+    in_single = False
 
     new_str = []
-    from_index = 0 # from is a keyword in Python
+    index = 0
 
-    for match in re.finditer(tokenizer,json):
+    for match in re.finditer(tokenizer, string):
 
-        if not in_multiline_comment and not in_singleline_comment:
-            tmp2 = json[from_index:match.start()]
+        if not (in_multi or in_single):
+            tmp = string[index:match.start()]
             if not in_string and strip_space:
-                tmp2 = re.sub('[ \t\n\r]*','',tmp2) # replace only white space defined in standard
-            new_str.append(tmp2)
+                # replace white space as defined in standard
+                tmp = re.sub('[ \t\n\r]+', '', tmp)
+            new_str.append(tmp)
 
-        from_index = match.end()
+        index = match.end()
+        val = match.group()
 
-        if match.group() == '"' and not in_multiline_comment and not in_singleline_comment:
-            escaped = re.search('(\\\\)*$',json[:match.start()])
-            if not in_string or escaped is None or len(escaped.group()) % 2 == 0:
-                # start of string with ", or unescaped " character found to end string
+        if val == '"' and not (in_multi or in_single):
+            escaped = end_slashes_re.search(string, 0, match.start())
+
+            # start of string or unescaped quote character to end string
+            if not in_string or (escaped is None or len(escaped.group()) % 2 == 0):  # noqa
                 in_string = not in_string
-            from_index -= 1 # include " character in next catch
+            index -= 1  # include " character in next catch
+        elif not (in_string or in_multi or in_single):
+            if val == '/*':
+                in_multi = True
+            elif val == '//':
+                in_single = True
+        elif val == '*/' and in_multi and not (in_string or in_single):
+            in_multi = False
+        elif val in '\r\n' and not (in_multi or in_string) and in_single:
+            in_single = False
+        elif not ((in_multi or in_single) or (val in ' \r\n\t' and strip_space)):  # noqa
+            new_str.append(val)
 
-        elif match.group() == '/*' and not in_string and not in_multiline_comment and not in_singleline_comment:
-            in_multiline_comment = True
-        elif match.group() == '*/' and not in_string and in_multiline_comment and not in_singleline_comment:
-            in_multiline_comment = False
-        elif match.group() == '//' and not in_string and not in_multiline_comment and not in_singleline_comment:
-            in_singleline_comment = True
-        elif (match.group() == '\n' or match.group() == '\r') and not in_string and not in_multiline_comment and in_singleline_comment:
-            in_singleline_comment = False
-        elif not in_multiline_comment and not in_singleline_comment and (
-             match.group() not in ['\n','\r',' ','\t'] or not strip_space):
-                new_str.append(match.group())
-
-    if not in_singleline_comment:
-        new_str.append(json[from_index:])
-
+    new_str.append(string[index:])
     return ''.join(new_str)
