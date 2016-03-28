@@ -10,7 +10,7 @@ import sys
 
 VERSION = int(sublime.version())
 
-if VERSION >=3006:
+if VERSION >= 3006:
     from FindKeyConflicts.lib.package_resources import *
     from FindKeyConflicts.lib.strip_commas import strip_dangling_commas
     from FindKeyConflicts.lib.minify_json import json_minify
@@ -40,6 +40,7 @@ if not logger.hasHandlers():  # Behave better on reloads
 
     _handler.setFormatter(_formatter)
     logger.addHandler(_handler)
+
 
 class GenerateKeymaps(object):
     def run(self, package=None):
@@ -425,17 +426,16 @@ class FindKeyConflictsCommandSearchCommand(GenerateKeymaps, sublime_plugin.Windo
         self.window.run_command(command, args)
         sublime.run_command(command, args)
 
+
 class ThreadBase(threading.Thread):
     def manage_package(self, package):
         self.done = False
         file_list = list_package_files(package)
         platform_keymap = "default (%s).sublime-keymap" % (PLATFORM.lower())
         for filename in file_list:
-
-            if filename.lower().endswith("default.sublime-keymap")or \
-            filename.lower().endswith(platform_keymap):
+            if filename.lower().endswith("default.sublime-keymap") or filename.lower().endswith(platform_keymap):
                 content = get_resource(package, filename)
-                if content == None:
+                if content is None:
                     continue
 
                 try:
@@ -456,7 +456,8 @@ class ThreadBase(threading.Thread):
                     #error_path = os.path.join(os.path.basename(orig_path), filename)
                     logger.warning("FindKeyConflicts[Warning]: An error " + "occured while parsing '" + package + "'")
                     continue
-                self.handle_key_map(package, key_map)
+                if key_map is not None:
+                    self.handle_key_map(package, key_map)
         self.done = True
 
     def check_ignore(self, key_array):
@@ -588,6 +589,7 @@ class FindPackageCommandsCall(ThreadBase):
 
             entry["keys"] = key_string
             self.all_key_map.append(entry)
+
 
 class InsertContentCommand(sublime_plugin.TextCommand):
     def run(self, edit, content):
