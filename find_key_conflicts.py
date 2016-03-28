@@ -30,10 +30,15 @@ VIEW_SELECTED_LIST_TEXT = "(View Selected)"
 VIEW_PACKAGES_LIST_TEXT = "(View Packages)"
 
 # Set up logger
-logging.basicConfig(format='[FindKeyConflicts] %(levelname)s %(message)s')
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
+if not logger.hasHandlers():  # Behave better on reloads
+    _handler = logging.StreamHandler(sys.stdout)
+    _formatter = logging.Formatter('[%(name)s] %(levelname)s - %(message)s')
+
+    _handler.setFormatter(_formatter)
+    logger.addHandler(_handler)
 
 class GenerateKeymaps(object):
     def run(self, package=None):
