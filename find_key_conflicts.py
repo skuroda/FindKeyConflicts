@@ -29,6 +29,7 @@ MODIFIERS = ('shift', 'ctrl', 'alt', 'super')
 DONE_TEXT = "(Done)"
 VIEW_SELECTED_LIST_TEXT = "(View Selected)"
 VIEW_PACKAGES_LIST_TEXT = "(View Packages)"
+SETTINGS_FILE = "FindKeyConflicts.sublime-settings"
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -44,11 +45,12 @@ if not logger.hasHandlers():  # Behave better on reloads
 
 class GenerateKeymaps(object):
     def run(self, package=None):
-        plugin_settings = sublime.load_settings("FindKeyConflicts.sublime-settings")
+        plugin_settings = sublime.load_settings(SETTINGS_FILE)
 
         self.window = self.window
         self.view = self.window.active_view()
-        self.display_internal_conflicts = plugin_settings.get("display_internal_conflicts", True)
+        self.display_internal_conflicts = plugin_settings.get(
+            "display_internal_conflicts", True)
         self.show_args = plugin_settings.get("show_args", False)
 
         packages = get_packages_list()
@@ -61,7 +63,7 @@ class GenerateKeymaps(object):
         self.handle_thread(thread)
 
     def generate_package_list(self):
-        plugin_settings = sublime.load_settings("FindKeyConflicts.sublime-settings")
+        plugin_settings = sublime.load_settings("SETTINGS_FILE")
         view = self.window.active_view()
         packages = get_packages_list()
         packages.sort()
@@ -82,11 +84,13 @@ class GenerateKeymaps(object):
             if not before:
                 move = 1
             i += move
-            self.view.set_status('find_key_conflicts', 'FindKeyConflicts [%s=%s]' % \
-                (' ' * before, ' ' * after))
+            self.view.set_status('find_key_conflicts',
+                                 'FindKeyConflicts [%s=%s]' %
+                                 (' ' * before, ' ' * after))
 
             # Timer to check again.
-            sublime.set_timeout(lambda: self.handle_thread(thread, i, move), 100)
+            sublime.set_timeout(
+                lambda: self.handle_thread(thread, i, move), 100)
         else:
             self.view.erase_status('find_key_conflicts')
             sublime.status_message('FindKeyConflicts finished.')
@@ -111,7 +115,8 @@ class GenerateKeymaps(object):
             try:
                 packages.remove(ignored_package)
             except:
-                logger.warning("FindKeyConflicts: Package '" + ignored_package + "' does not exist.")
+                logger.warning("FindKeyConflicts: Package '" +
+                               ignored_package + "' does not exist.")
 
         return packages
 
@@ -161,7 +166,8 @@ class GenerateOutput(object):
         for key_string in potential_conflicts_keys:
             content += self.generate_text(key_string, self.all_key_map, 0)
             for conflict in conflict_map[key_string]:
-                content += self.generate_text(conflict, self.all_key_map, offset, "(", ")")
+                content += self.generate_text(conflict, self.all_key_map,
+                                              offset, "(", ")")
         return content
 
     def generate_key_map_text(self, key_map):
@@ -188,20 +194,28 @@ class GenerateOutput(object):
     def longest_package_length(self, key_map):
         pass
 
-    def generate_text(self, key_string, key_map, offset=0, key_wrap_in='[', key_wrap_out=']'):
+    def generate_text(self, key_string, key_map, offset=0, key_wrap_in='[',
+                      key_wrap_out=']'):
         content = ''
         item = key_map.get(key_string)
         content += " " * offset
         content += ' %s%s%s\n' % (key_wrap_in, key_string, key_wrap_out)
         packages = item.get("packages")
-
+        misconfigured_command_message = ''
         for package in packages:
             package_map = item.get(package)
             for entry in package_map:
+                if 'command' not in entry:
+                    misconfigured_command_message += '%s in %s does not ' \
+                        'have a command\n' % (key_string, package)
+                    continue
                 content += " " * offset
                 content += '   %*s %*s  %s\n' % \
-                    (-40 + offset, entry['command'], -20, package, \
-                    json.dumps(entry['context']) if "context" in entry else '')
+                    (-40 + offset, entry['command'], -20, package,
+                     json.dumps(entry['context']) if "context" in entry else '')
+
+        if misconfigured_command_message:
+            sublime.error_message(misconfigured_command_message)
 
         return content
 
@@ -217,7 +231,8 @@ class GenerateOutput(object):
             quick_panel_item = [key, ", ".join(value["packages"])]
             quick_panel_items.append(quick_panel_item)
 
-        self.window.show_quick_panel(quick_panel_items, self.quick_panel_callback)
+        self.window.show_quick_panel(quick_panel_items,
+                                     self.quick_panel_callback)
 
     def quick_panel_callback(self, index):
         if index == -1:
@@ -389,7 +404,6 @@ class FindKeyConflictsCommandSearchCommand(GenerateKeymaps, sublime_plugin.Windo
         for package in packages:
             if len(find_resource("Default( \(%s\))?.sublime-keymap$" % PLATFORM, package)) > 0:
                 self.package_list.append(package)
-
 
         self.generate_quick_panel(self.package_list, self.package_list_callback)
 
