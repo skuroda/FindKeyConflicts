@@ -35,7 +35,7 @@ SETTINGS_FILE = "FindKeyConflicts.sublime-settings"
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
-if not logger.hasHandlers():  # Behave better on reloads
+if not len(logger.handlers):  # Behave better on reloads
     _handler = logging.StreamHandler(sys.stdout)
     _formatter = logging.Formatter('[%(name)s] %(levelname)s - %(message)s')
 
