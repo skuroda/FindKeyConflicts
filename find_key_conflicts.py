@@ -320,10 +320,10 @@ class FindKeyConflictsWithPackageCommand(GenerateKeymaps, sublime_plugin.WindowC
         self.quick_panel_list = copy.copy(packages)
         if self.multiple:
             if selected_list:
-                self.quick_panel_list.append(VIEW_PACKAGES_LIST_TEXT)
-            else:
-                self.quick_panel_list.append(VIEW_SELECTED_LIST_TEXT)
-            self.quick_panel_list.append(DONE_TEXT)
+                self.quick_panel_list.insert(0, VIEW_PACKAGES_LIST_TEXT)
+            elif self.selected_list:
+                self.quick_panel_list.insert(0, VIEW_SELECTED_LIST_TEXT)
+            self.quick_panel_list.insert(0, DONE_TEXT)
         sublime.set_timeout(lambda: self.window.show_quick_panel(self.quick_panel_list, callback), 10)
 
     def selected_list_callback(self, index):
